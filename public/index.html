@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Agente VibeCoder — IA Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#090d16;--bg2:#0f172a;--border:rgba(255,255,255,.08);--text:#f1f5f9;--muted:#64748b;--cy:#06b6d4;--vi:#8b5cf6;--em:#10b981}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}
+.chat-header{padding:16px 24px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.agent-avatar{width:40px;height:40px;background:linear-gradient(135deg,var(--cy),var(--vi));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px}
+.agent-info h1{font-size:16px;font-weight:700}.agent-info p{font-size:12px;color:var(--muted)}
+.status-dot{width:8px;height:8px;background:var(--em);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.chat-messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px}
+.msg{max-width:75%;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{align-self:flex-end}.msg.ai{align-self:flex-start}
+.msg-bubble{padding:12px 16px;border-radius:16px;font-size:14px;line-height:1.6}
+.msg.user .msg-bubble{background:linear-gradient(135deg,var(--cy),var(--vi));color:white;border-bottom-right-radius:4px}
+.msg.ai .msg-bubble{background:var(--bg2);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg-bubble code{font-family:'Fira Code',monospace;font-size:12px;background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px}
+.msg-bubble pre{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:8px;overflow-x:auto}
+.msg-bubble pre code{background:none;padding:0}
+.msg-time{font-size:11px;color:var(--muted);margin-top:4px;padding:0 4px}
+.msg.user .msg-time{text-align:right}
+.typing-indicator{display:flex;gap:4px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;border-bottom-left-radius:4px;width:fit-content}
+.typing-dot{width:8px;height:8px;background:var(--muted);border-radius:50%;animation:bounce .8s ease-in-out infinite}
+.typing-dot:nth-child(2){animation-delay:.15s}.typing-dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}}
+.chat-input{padding:16px 24px;background:var(--bg2);border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end}
+#msgInput{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-size:14px;font-family:inherit;resize:none;outline:none;max-height:120px;transition:border-color .2s}
+#msgInput:focus{border-color:var(--cy)}
+.send-btn{padding:12px 20px;background:linear-gradient(135deg,var(--cy),var(--vi));border:none;border-radius:12px;color:white;font-size:14px;font-weight:700;cursor:pointer;transition:transform .2s}
+.send-btn:hover{transform:translateY(-2px)}.send-btn:disabled{opacity:.5;cursor:not-allowed}
+.reset-btn{padding:12px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;color:var(--muted);cursor:pointer;font-size:14px}
+.welcome{text-align:center;padding:48px 24px;color:var(--muted)}
+.welcome h2{font-size:24px;font-weight:800;background:linear-gradient(135deg,var(--cy),var(--vi));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.suggestions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:20px}
+.suggestion{padding:8px 16px;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.2);border-radius:99px;font-size:13px;color:var(--cy);cursor:pointer;transition:all .2s}
+.suggestion:hover{background:rgba(6,182,212,.2)}
+</style>
+</head>
+<body>
+<div class="chat-header">
+  <div class="agent-avatar">🤖</div>
+  <div class="agent-info">
+    <h1>Agente VibeCoder</h1>
+    <p>Especialista em IA, Código e Agentes Inteligentes</p>
+  </div>
+  <div class="status-dot" style="margin-left:auto"></div>
+</div>
+<div class="chat-messages" id="messages">
+  <div class="welcome">
+    <h2>🤖 Olá, sou o Agente VibeCoder!</h2>
+    <p>Especialista em programação, IA e desenvolvimento web. Como posso ajudar?</p>
+    <div class="suggestions">
+      <span class="suggestion">Como criar uma API REST segura?</span>
+      <span class="suggestion">O que é RAG em IA?</span>
+      <span class="suggestion">Explica JWT com exemplos</span>
+      <span class="suggestion">Melhores práticas de segurança web</span>
+    </div>
+  </div>
+</div>
+<div class="chat-input">
+  <button class="reset-btn" id="resetBtn" title="Nova conversa">🔄</button>
+  <textarea id="msgInput" placeholder="Escreva a sua mensagem..." rows="1"></textarea>
+  <button class="send-btn" id="sendBtn">Enviar →</button>
+</div>
+<script>
+const messages = document.getElementById('messages');
+const input = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+const sid = 'session_' + Date.now();
+
+function addMsg(text, role) {
+  const welcome = document.querySelector('.welcome');
+  if (welcome) welcome.remove();
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  const time = new Date().toLocaleTimeString('pt-PT', {hour:'2-digit',minute:'2-digit'});
+  el.innerHTML = `<div class="msg-bubble">${marked(text)}</div><div class="msg-time">${time}</div>`;
+  messages.appendChild(el);
+  messages.scrollTop = messages.scrollHeight;
+  return el;
+}
+
+function marked(text) {
+  return text.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, '<br>');
+}
+
+function addTyping() {
+  const el = document.createElement('div');
+  el.className = 'msg ai'; el.id = 'typing';
+  el.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+  messages.appendChild(el);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+async function sendMessage(text) {
+  if (!text.trim() || sendBtn.disabled) return;
+  sendBtn.disabled = true;
+  addMsg(text, 'user');
+  input.value = ''; input.style.height = 'auto';
+  addTyping();
+  try {
+    const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({message: text, sessionId: sid}) });
+    const typingEl = document.getElementById('typing');
+    if (typingEl) typingEl.remove();
+    if (!res.ok) { const err = await res.json(); addMsg('❌ ' + (err.error || 'Erro desconhecido.'), 'ai'); return; }
+    const reader = res.body.getReader();
+    const aiEl = addMsg('', 'ai');
+    const bubble = aiEl.querySelector('.msg-bubble');
+    let full = '';
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      const lines = new TextDecoder().decode(value).split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+          try { full += JSON.parse(line.slice(6)).text; bubble.innerHTML = marked(full); messages.scrollTop = messages.scrollHeight; } catch {}
+        }
+      }
+    }
+  } catch (e) { const t = document.getElementById('typing'); if(t) t.remove(); addMsg('❌ Erro de ligação.', 'ai'); }
+  finally { sendBtn.disabled = false; input.focus(); }
+}
+
+sendBtn.addEventListener('click', () => sendMessage(input.value));
+input.addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input.value); } });
+input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; });
+document.getElementById('resetBtn').addEventListener('click', async () => { await fetch('/api/reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:sid})}); messages.innerHTML = '<div class="welcome"><h2>🤖 Conversa reiniciada!</h2><p>Como posso ajudar?</p></div>'; });
+document.querySelectorAll('.suggestion').forEach(s => s.addEventListener('click', () => sendMessage(s.textContent)));
+</script>
+</body>
+</html>
